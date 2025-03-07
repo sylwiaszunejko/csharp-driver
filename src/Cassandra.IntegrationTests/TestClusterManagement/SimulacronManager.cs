@@ -98,6 +98,8 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
                 var errorMessage = "Simulacron is taking too long to start. Aborting initialization...";
                 _simulacronProcess = new Process();
                 var jarPath = Environment.GetEnvironmentVariable("SIMULACRON_PATH");
+                Console.WriteLine("Checking file: " + jarPath);
+                Console.WriteLine("Current Directory: " + Directory.GetCurrentDirectory());
                 if (string.IsNullOrEmpty(jarPath))
                 {
                     jarPath = Environment.GetEnvironmentVariable("HOME") + "/simulacron.jar";
