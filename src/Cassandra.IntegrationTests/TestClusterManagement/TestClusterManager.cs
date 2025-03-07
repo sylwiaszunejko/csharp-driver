@@ -28,6 +28,11 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
     {
         public const string DefaultKeyspaceName = "test_cluster_keyspace";
         private static ICcmProcessExecuter _executor;
+        private static int _idPrefixCounter = 0;
+        private static string GetUniqueIdPrefix()
+        {
+            return (_idPrefixCounter++).ToString();
+        }
 
         private static readonly Version Version2Dot0 = new Version(2, 0);
         private static readonly Version Version2Dot1 = new Version(2, 1);
@@ -112,6 +117,16 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
         public static string CassandraVersionString
         {
             get { return Environment.GetEnvironmentVariable("CASSANDRA_VERSION") ?? "3.11.2"; }
+        }
+
+        public static string ScyllaVersionString
+        {
+            get { return Environment.GetEnvironmentVariable("SCYLLA_VERSION"); }
+        }
+
+        public static bool IsScylla
+        {
+            get { return !string.IsNullOrEmpty(ScyllaVersionString); }
         }
 
         public static bool IsDse
@@ -241,11 +256,12 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
             options = options ?? new TestClusterOptions();
             var testCluster = new CcmCluster(
                 TestUtils.GetTestClusterNameBasedOnRandomString(),
-                IpPrefix,
+                GetUniqueIdPrefix(),
                 DsePath,
                 Executor,
                 DefaultKeyspaceName,
-                IsDse ? DseVersionString : CassandraVersionString);
+                IsDse ? DseVersionString : CassandraVersionString,
+                ScyllaVersionString);
             testCluster.Create(nodeLength, options);
             if (startCluster)
             {

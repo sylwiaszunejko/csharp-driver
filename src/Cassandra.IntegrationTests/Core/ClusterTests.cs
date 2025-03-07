@@ -190,7 +190,7 @@ namespace Cassandra.IntegrationTests.Core
         [Category(TestCategory.RealClusterLong)]
         public async Task Should_Remove_Decommissioned_Node()
         {
-            const int numberOfNodes = 2;
+            const int numberOfNodes = 3;
             _realCluster = TestClusterManager.CreateNew(numberOfNodes);
             var cluster = ClusterBuilder().AddContactPoint(_realCluster.InitialContactPoint).Build();
 
