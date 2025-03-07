@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup environment
+        run: |
+          pip3 install https://github.com/scylladb/scylla-ccm/archive/master.zip
+
+      - name: Get scylla version
+        id: scylla-version
+        run: |
+          if [[ "${{ matrix.scylla-version }}" == "ENTERPRISE-RELEASE" ]]; then
+            echo "value=$(python3 ci/version_fetch.py --version-index 1 scylla-enterprise-stable:1 | tr -d '\"')" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.scylla-version }}" == "ENTERPRISE-PRIOR-RELEASE" ]]; then
+            echo "value=$(python3 ci/version_fetch.py --version-index 2 scylla-enterprise-stable:2 | tr -d '\"')" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.scylla-version }}" == "ENTERPRISE-RC" ]]; then
+            echo "value=$(python3 ci/version_fetch.py --version-index 1 scylla-enterprise-rc | tr -d '\"')" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.scylla-version }}" == "OSS-RELEASE" ]]; then
+            echo "value=$(python3 ci/version_fetch.py --version-index 1 scylla-oss-stable:1 | tr -d '\"')" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.scylla-version }}" == "OSS-PRIOR-RELEASE" ]]; then
+            echo "value=$(python3 ci/version_fetch.py --version-index 2 scylla-oss-stable:2 | tr -d '\"')" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.scylla-version }}" == "OSS-RC" ]]; then
+            echo "value=$(python3 ci/version_fetch.py --version-index 1 scylla-oss-rc | tr -d '\"')" >> $GITHUB_OUTPUT
+          else
+            echo "Unknown scylla version name `${{ matrix.scylla-version }}`"
+            exit 1
+          fi
+
+      - name: Pull CCM image from the cache
+        uses: actions/cache/restore@v4
+        id: ccm-cache
+        with:
+          path: ~/.ccm/repository
+          key: ccm-scylla-${{ runner.os }}-${{ steps.scylla-version.outputs.value }}
+
+      - name: Download Scylla (${{ steps.scylla-version.outputs.value }}) image
+        if: steps.ccm-cache.outputs.cache-hit != 'true'
+        run: |
+          rm -rf /tmp/download.ccm || true
+          mkdir /tmp/download.ccm || true
+          ccm create ccm_1 -i 127.0.1. -n 3:0 -v "release:${{ steps.scylla-version.outputs.value }}" --scylla --config-dir=/tmp/download.ccm
+          rm -rf /tmp/download.ccm
+
+      - name: Save CCM image into the cache
+        uses: actions/cache/save@v4
+        if: steps.ccm-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.ccm/repository
+          key: ccm-scylla-${{ runner.os }}-${{ steps.scylla-version.outputs.value }}
+
+      - name: Run integration tests on Scylla
+        run: SCYLLA_EXT_OPTS="--smp 2 --memory 4G" SIMULACRON_PATH=/csharp-driver-matrix/simulacron-standalone-0.12.0.jar dotnet test src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj -f net8 -l "console;verbosity=detailed"

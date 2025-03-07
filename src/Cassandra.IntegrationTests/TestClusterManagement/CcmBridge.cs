@@ -29,18 +29,21 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
         public DirectoryInfo CcmDir { get; private set; }
         public string Name { get; private set; }
         public string Version { get; private set; }
-        public string IpPrefix { get; private set; }
+        public string ScyllaVersion { get; private set; }
+        public string IdPrefix { get; private set; }
+        public string IpPrefix => $"127.0.{IdPrefix}.";
         public ICcmProcessExecuter CcmProcessExecuter { get; set; }
         private readonly string _dseInstallPath;
 
-        public CcmBridge(string name, string ipPrefix, string dsePath, string version, ICcmProcessExecuter executor)
+        public CcmBridge(string name, string idPrefix, string dsePath, string version, string scyllaVersion, ICcmProcessExecuter executor)
         {
             Name = name;
-            IpPrefix = ipPrefix;
+            IdPrefix = idPrefix;
             CcmDir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
             CcmProcessExecuter = executor;
             _dseInstallPath = dsePath;
             Version = version;
+            ScyllaVersion = scyllaVersion;
         }
 
         public void Dispose()
@@ -64,18 +67,14 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
                 sslParams = "--ssl " + sslPath;
             }
 
-            if (string.IsNullOrEmpty(_dseInstallPath))
+            if (!string.IsNullOrEmpty(ScyllaVersion))
             {
-                if (TestClusterManager.IsDse)
-                {
-                    ExecuteCcm(string.Format(
-                        "create {0} --dse -v {1} {2}", Name, Version, sslParams));
-                }
-                else
-                {
-                    ExecuteCcm(string.Format(
-                        "create {0} -v {1} {2}", Name, Version, sslParams));
-                }
+                ExecuteCcm($"create {Name} --scylla -v {ScyllaVersion} {sslParams}");
+            }
+            else if (string.IsNullOrEmpty(_dseInstallPath))
+            {
+                var dseFlag = TestClusterManager.IsDse ? "--dse" : string.Empty;
+                ExecuteCcm($"create {Name} {dseFlag} -v {Version} {sslParams}");
             }
             else
             {
@@ -266,6 +265,10 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
             if (TestClusterManager.IsDse)
             {
                 cmd += " --dse";
+            }
+            else if (TestClusterManager.IsScylla)
+            {
+               cmd += " --scylla";
             }
 
             var output = ExecuteCcm(string.Format(cmd, n, IpPrefix, n, 7000 + 100 * n, dc != null ? "-d " + dc : null));

@@ -106,9 +106,21 @@ namespace Cassandra.IntegrationTests.TestBase
 
         public static bool VersionMatch(Version expectedVersion, bool requiresDse, bool requiresOss, Comparison comparison, out string message)
         {
+            if (TestClusterManager.IsScylla && requiresDse)
+            {
+                message = "Test designed to run with DSE (executing Scylla)";
+                return false;
+            }
+
+            if (TestClusterManager.IsScylla && requiresOss)
+            {
+                message = "Test designed to run with OSS Cassandra (executing Scylla)";
+                return true;
+            }
+
             if (TestClusterManager.IsDse && requiresOss)
             {
-                message = string.Format("Test designed to run with OSS {0} v{1} (executing DSE {2})", 
+                message = string.Format("Test designed to run with OSS {0} v{1} (executing DSE {2})",
                     TestDseVersion.GetComparisonText(comparison), 
                     expectedVersion, 
                     TestClusterManager.DseVersion);

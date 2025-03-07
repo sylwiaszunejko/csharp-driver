@@ -50,7 +50,7 @@ namespace Cassandra.IntegrationTests.Core
                     }
                 };
 
-                if (TestClusterManager.CheckCassandraVersion(false, new Version(4, 0), Comparison.LessThan))
+                if (!TestClusterManager.IsScylla && TestClusterManager.CheckCassandraVersion(false, new Version(4, 0), Comparison.LessThan))
                 {
                     setupQueries.Add($"CREATE TABLE {TableCompactStorage} (key blob PRIMARY KEY, bar int, baz uuid)" +
                                      $" WITH COMPACT STORAGE");
