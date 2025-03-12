@@ -28,6 +28,7 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
     {
         public virtual ProcessOutput ExecuteCcm(string args, bool throwOnProcessError = true)
         {
+            Console.WriteLine("Executing: " + args);
             var executable = GetExecutable(ref args);
             Trace.TraceInformation(executable + " " + args);
             var output = ExecuteProcess(executable, args, GetDefaultTimeout());
@@ -133,7 +134,7 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
                     while (!endProcessToken.IsCancellationRequested)
                     {
                         var read = await Task.Run(
-                            () => stream.ReadAsync(buf, 0, bufLength), 
+                            () => stream.ReadAsync(buf, 0, bufLength),
                             timeoutToken).ConfigureAwait(false);
                         if (read <= 0)
                         {
@@ -154,7 +155,7 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
             try
             {
                 var readEnd = await Task.Run(
-                    stream.ReadToEndAsync, 
+                    stream.ReadToEndAsync,
                     timeoutToken).ConfigureAwait(false);
                 stringBuilder.Append(readEnd);
             }
