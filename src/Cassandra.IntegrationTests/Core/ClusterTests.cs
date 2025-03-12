@@ -210,10 +210,10 @@ namespace Cassandra.IntegrationTests.Core
                 string decommisionedNode = null;
                 TestHelper.RetryAssert(() =>
                 {
-                    decommisionedNode = _realCluster.ClusterIpPrefix + 2;
+                    decommisionedNode = _realCluster.ClusterIpPrefix + 3;
                     Assert.False(TestUtils.IsNodeReachable(IPAddress.Parse(decommisionedNode)));
                         //New node should be part of the metadata
-                        Assert.AreEqual(1, cluster.AllHosts().Count);
+                        Assert.AreEqual(2, cluster.AllHosts().Count);
                 }, 100, 100);
                 var queried = false;
                 for (var i = 0; i < 10; i++)
