@@ -35,7 +35,7 @@ namespace Cassandra.IntegrationTests.TestBase
         public Comparison Comparison { get; set; }
 
         private bool IsOssRequired { get; set; }
-        
+
         /// <summary>
         /// Creates an instance of an attribute that filters the test to execute according to the current DSE version
         /// being used.
@@ -106,6 +106,7 @@ namespace Cassandra.IntegrationTests.TestBase
 
         public static bool VersionMatch(Version expectedVersion, bool requiresDse, bool requiresOss, Comparison comparison, out string message)
         {
+            Console.WriteLine("IsScylla: " + TestClusterManager.IsScylla);
             if (TestClusterManager.IsScylla && requiresDse)
             {
                 message = "Test designed to run with DSE (executing Scylla)";
@@ -121,8 +122,8 @@ namespace Cassandra.IntegrationTests.TestBase
             if (TestClusterManager.IsDse && requiresOss)
             {
                 message = string.Format("Test designed to run with OSS {0} v{1} (executing DSE {2})",
-                    TestDseVersion.GetComparisonText(comparison), 
-                    expectedVersion, 
+                    TestDseVersion.GetComparisonText(comparison),
+                    expectedVersion,
                     TestClusterManager.DseVersion);
                 return false;
             }
@@ -157,7 +158,7 @@ namespace Cassandra.IntegrationTests.TestBase
             executingVersion = AdaptVersion(executingVersion);
 
             var comparisonResult = (Comparison)executingVersion.CompareTo(expectedVersion);
-            
+
             if (comparisonResult >= Comparison.Equal && comparison == Comparison.GreaterThanOrEqualsTo)
             {
                 return true;
@@ -241,24 +242,24 @@ namespace Cassandra.IntegrationTests.TestBase
     public class TestBothServersVersion : TestDseVersion
     {
         public TestBothServersVersion(
-            int cassandraVersionMajor, 
-            int cassandraVersionMinor, 
-            int dseVersionMajor, 
-            int dseVersionMinor, 
-            Comparison comparison = Comparison.GreaterThanOrEqualsTo) 
+            int cassandraVersionMajor,
+            int cassandraVersionMinor,
+            int dseVersionMajor,
+            int dseVersionMinor,
+            Comparison comparison = Comparison.GreaterThanOrEqualsTo)
             : this(
-                TestClusterManager.IsDse 
-                    ? new Version(dseVersionMajor, dseVersionMinor) 
-                    : new Version(cassandraVersionMajor, cassandraVersionMinor), 
+                TestClusterManager.IsDse
+                    ? new Version(dseVersionMajor, dseVersionMinor)
+                    : new Version(cassandraVersionMajor, cassandraVersionMinor),
                 comparison)
         {
         }
 
-        private TestBothServersVersion(Version version, Comparison comparison) 
+        private TestBothServersVersion(Version version, Comparison comparison)
             : base(version.Major, version.Minor, comparison)
         {
         }
-        
+
         protected override bool IsDseRequired()
         {
             return TestClusterManager.IsDse;

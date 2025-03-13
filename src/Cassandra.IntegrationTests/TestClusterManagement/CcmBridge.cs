@@ -69,7 +69,7 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
 
             if (!string.IsNullOrEmpty(ScyllaVersion))
             {
-                ExecuteCcm($"create {Name} --scylla -v {ScyllaVersion} {sslParams}");
+                ExecuteCcm($"create {Name} --scylla -v release:{ScyllaVersion} {sslParams}");
             }
             else if (string.IsNullOrEmpty(_dseInstallPath))
             {
@@ -145,7 +145,7 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
             {
                 runAsRoot = "--root";
             }
-            
+
             var jvmArgsParameters = new List<string>
             {
                 "start",
