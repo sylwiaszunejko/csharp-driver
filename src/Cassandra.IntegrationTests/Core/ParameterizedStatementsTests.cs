@@ -167,7 +167,7 @@ namespace Cassandra.IntegrationTests.Core
         public void DateTime_Insert_Select_Test()
         {
             InsertSelectTest(new DateTime(2010, 4, 29, 19, 01, 02, 300, DateTimeKind.Utc), "timestamp_sample");
-            InsertSelectTest<DateTime?>(new DateTime(2005, 8, 5, 21, 01, 02, 300, DateTimeKind.Utc), 
+            InsertSelectTest<DateTime?>(new DateTime(2005, 8, 5, 21, 01, 02, 300, DateTimeKind.Utc),
                 "timestamp_sample");
             InsertSelectTest<DateTime?>(null, "timestamp_sample");
         }
@@ -295,7 +295,7 @@ namespace Cassandra.IntegrationTests.Core
             Session.Execute(
                 new SimpleStatement(
                     insertQuery,
-                    new { my_INt = 1, my_TEXT = "WAT1", my_id = id}));
+                    new { my_INt = 1, my_TEXT = "WAT1", my_id = id }));
 
             var row = Session.Execute(string.Format("SELECT * FROM {0} WHERE id = {1:D}", AllTypesTableName, id)).First();
             Assert.AreEqual(1, row.GetValue<int>("int_sample"));
@@ -309,8 +309,8 @@ namespace Cassandra.IntegrationTests.Core
             var insertQuery = string.Format("INSERT INTO {0} (float_sample, text_sample, bigint_sample, id) VALUES (:MY_float, :my_TexT, :my_BIGint, :id)", AllTypesTableName);
 
             Assert.Throws<InvalidQueryException>(() => Session.Execute(
-                new SimpleStatement(insertQuery, 
-                    new {id = Guid.NewGuid(), my_bigint = 1L })));
+                new SimpleStatement(insertQuery,
+                    new { id = Guid.NewGuid(), my_bigint = 1L })));
         }
 
         [Test]
@@ -340,8 +340,8 @@ namespace Cassandra.IntegrationTests.Core
             var values = new sbyte[] { sbyte.MinValue, -4, -3, 0, 1, 2, 126, sbyte.MaxValue };
             foreach (var v in values)
             {
-                var insert = new SimpleStatement("INSERT INTO tbl_tinyint_param (id, v, m) VALUES (?, ?, ?)", 
-                    Convert.ToInt32(v), v, new SortedDictionary<sbyte, string> { { v, v.ToString()} });
+                var insert = new SimpleStatement("INSERT INTO tbl_tinyint_param (id, v, m) VALUES (?, ?, ?)",
+                    Convert.ToInt32(v), v, new SortedDictionary<sbyte, string> { { v, v.ToString() } });
                 var select = new SimpleStatement("SELECT * FROM tbl_tinyint_param WHERE id = ?", Convert.ToInt32(v));
                 Session.Execute(insert);
                 var rs = Session.Execute(select).ToList();
@@ -356,7 +356,7 @@ namespace Cassandra.IntegrationTests.Core
         public void SimpleStatementDateTests()
         {
             Session.Execute("CREATE TABLE tbl_date_param (id int PRIMARY KEY, v date, m map<date, text>)");
-            var values = new[] { 
+            var values = new[] {
                 new LocalDate(2010, 4, 29),
                 new LocalDate(0, 3, 12),
                 new LocalDate(-10, 2, 4),
