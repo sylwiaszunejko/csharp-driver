@@ -108,6 +108,9 @@ namespace Cassandra.Connections
         /// <inheritdoc />
         public IConnection[] ConnectionsSnapshot => _connections.GetSnapshot();
 
+        public ShardingInfo shardingInfo { get; private set; }
+
+        private int lastAttemptedShard = 0;
 
         public HostConnectionPool(Host host, Configuration config, ISerializerManager serializerManager, IObserverFactory observerFactory)
         {
@@ -641,6 +644,105 @@ namespace Cassandra.Connections
             }
         }
 
+        private async Task<IConnection> CreateOpenTestConnection(bool satisfyWithAnOpenConnection, bool isReconnection)
+        {
+            // Console.WriteLine("TEST CONN CreateOpenConnection to: " + _host.Address);
+            var concurrentOpenTcs = Volatile.Read(ref _connectionOpenTcs);
+            // Try to exit early (cheap) as there could be another thread creating / finishing creating
+            if (concurrentOpenTcs != null)
+            {
+                // There is another thread opening a new connection
+                return await concurrentOpenTcs.Task.ConfigureAwait(false);
+            }
+            var tcs = new TaskCompletionSource<IConnection>();
+            // Try to set the creation task source
+            concurrentOpenTcs = Interlocked.CompareExchange(ref _connectionOpenTcs, tcs, null);
+            if (concurrentOpenTcs != null)
+            {
+                // There is another thread opening a new connection
+                return await concurrentOpenTcs.Task.ConfigureAwait(false);
+            }
+
+            if (IsClosing)
+            {
+                return await FinishOpen(tcs, false, HostConnectionPool.GetNotConnectedException()).ConfigureAwait(false);
+            }
+
+            // Before creating, make sure that its still needed
+            // This method is the only one that adds new connections
+            // But we don't control the removal, use snapshot
+            var connectionsSnapshot = _connections.GetSnapshot();
+            if (connectionsSnapshot.Length >= _expectedConnectionLength)
+            {
+                if (connectionsSnapshot.Length == 0)
+                {
+                    // Avoid race condition while removing
+                    return await FinishOpen(tcs, false, HostConnectionPool.GetNotConnectedException()).ConfigureAwait(false);
+                }
+                return await FinishOpen(tcs, true, null, connectionsSnapshot[0]).ConfigureAwait(false);
+            }
+
+            if (satisfyWithAnOpenConnection && !_canCreateForeground)
+            {
+                // We only care about a single connection, if its already there, yield it
+                connectionsSnapshot = _connections.GetSnapshot();
+                if (connectionsSnapshot.Length == 0)
+                {
+                    // When creating in foreground, it failed
+                    return await FinishOpen(tcs, false, HostConnectionPool.GetNotConnectedException()).ConfigureAwait(false);
+                }
+                return await FinishOpen(tcs, false, null, connectionsSnapshot[0]).ConfigureAwait(false);
+            }
+
+            HostConnectionPool.Logger.Info("Creating a new connection to {0}", _host.Address);
+            IConnection c;
+            try
+            {
+                c = await DoCreateAndOpen(isReconnection).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                HostConnectionPool.Logger.Info("Connection to {0} could not be created: {1}", _host.Address, ex);
+                return await FinishOpen(tcs, true, ex).ConfigureAwait(false);
+            }
+
+            if (IsClosing)
+            {
+                HostConnectionPool.Logger.Info("Connection to {0} opened successfully but pool #{1} was being closed",
+                    _host.Address, GetHashCode());
+                c.Dispose();
+                return await FinishOpen(tcs, false, HostConnectionPool.GetNotConnectedException()).ConfigureAwait(false);
+            }
+
+            // do not add to connections
+            // var newLength = _connections.AddNew(c);
+            // HostConnectionPool.Logger.Info("Connection to {0} opened successfully, pool #{1} length: {2}",
+            //     _host.Address, GetHashCode(), newLength);
+
+            if (IsClosing)
+            {
+                // We haven't use a CAS operation, so it's possible that the pool is being closed while adding a new
+                // connection, we should remove it.
+                HostConnectionPool.Logger.Info("Connection to {0} opened successfully and added to the pool #{1} but the pool was being closed",
+                    _host.Address, GetHashCode());
+                _connections.Remove(c);
+                c.Dispose();
+                return await FinishOpen(tcs, false, HostConnectionPool.GetNotConnectedException()).ConfigureAwait(false);
+            }
+
+            if (c.IsDisposed)
+            {
+                // We haven't use a CAS operation, so it's possible that the connection is being disposed while adding it
+                HostConnectionPool.Logger.Info("Connection to {0} opened successfully and added to the pool #{1} but it got closed",
+                    _host.Address, GetHashCode());
+                _connections.Remove(c);
+                c.Dispose();
+                return await FinishOpen(tcs, true, HostConnectionPool.GetNotConnectedException()).ConfigureAwait(false);
+            }
+
+            return await FinishOpen(tcs, true, null, c).ConfigureAwait(false);
+        }
+
         /// <summary>
         /// Opens one connection.
         /// If a connection is being opened it yields the same task, preventing creation in parallel.
@@ -705,6 +807,29 @@ namespace Cassandra.Connections
             IConnection c;
             try
             {
+                // Find out to which shard should we connect to
+                // Console.WriteLine("Decide which shard to connect to");
+                var shardID = 0;
+                // Console.WriteLine("ShardingInfo: {0}", shardingInfo);
+                if (shardingInfo != null)
+                {
+                    // Find the shard without a connection
+                    // It's important to start counting from 1 here because we want
+                    // to consider the next shard after the previously attempted one
+                    for (var i = 1; i <= shardingInfo.ScyllaNrShards; i++)
+                    {
+                        // Console.WriteLine("i: {0}", i);
+                        var _shardID = (lastAttemptedShard + i) % shardingInfo.ScyllaNrShards;
+                        if (connectionsSnapshot.Length <= shardID || connectionsSnapshot[shardID] == null)
+                        {
+                            lastAttemptedShard = _shardID;
+                            shardID = _shardID;
+                            break;
+                        }
+                    }
+                }
+                // TODO : utilize the shardID
+                // Console.WriteLine("shardID: {0}", shardID);
                 c = await DoCreateAndOpen(isReconnection).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -965,7 +1090,8 @@ namespace Cassandra.Connections
                 throw;
             }
 
-            for (var i = 1; i < length; i++)
+            // Console.WriteLine("Warmup host conn poool to: {0} with length: {1}", _host.Address, length);
+            for (var i = 0; i < length; i++)
             {
                 try
                 {
@@ -973,7 +1099,14 @@ namespace Cassandra.Connections
                 }
                 catch
                 {
-                    break;
+                    if (i > 0)
+                    {
+                        // There is an opened connection, don't mind
+                        break;
+                    }
+
+                    OnConnectionClosing();
+                    throw;
                 }
             }
         }
