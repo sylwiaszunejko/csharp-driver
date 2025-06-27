@@ -166,7 +166,10 @@ namespace Cassandra.Connections
                 if (routingKey != null)
                 {
                     IToken token = _tokenFactory.Hash(routingKey.RawRoutingKey);
-                    shardID = shardingInfo.ShardID(token);
+                    if (shardID == -1)
+                    {
+                        shardID = shardingInfo.ShardID(token);
+                    }
                 }
                 else
                 {
@@ -178,10 +181,9 @@ namespace Cassandra.Connections
             if (shardID != -1)
             {
                 var minInFlight = int.MaxValue;
-                var localInFlight = 0;
                 foreach (var connection in _connections.GetItemsForShard(shardID))
                 {
-                    localInFlight = connection.InFlight;
+                    int localInFlight = connection.InFlight;
                     if (localInFlight < minInFlight)
                     {
                         minInFlight = localInFlight;
@@ -189,7 +191,7 @@ namespace Cassandra.Connections
                     }
                 }
             }
-            var inFlight = 0;
+            int inFlight;
             if (c != null)
             {
                 // if we have a connection for the shard, use it if it is not too busy
