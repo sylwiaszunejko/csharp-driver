@@ -24,7 +24,7 @@ using Cassandra.Serialization;
 namespace Cassandra
 {
     /// <summary>
-    /// Represents a protocol-aware forward reader 
+    /// Represents a protocol-aware forward reader
     /// </summary>
     internal class FrameReader
     {
@@ -157,7 +157,7 @@ namespace Cassandra
         }
 
         /// <summary>
-        /// Reads the protocol bytes, retrieving the int length and reading the subsequent amount of bytes 
+        /// Reads the protocol bytes, retrieving the int length and reading the subsequent amount of bytes
         /// </summary>
         public byte[] ReadBytes()
         {
