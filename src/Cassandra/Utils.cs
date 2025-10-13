@@ -178,7 +178,7 @@ namespace Cassandra
         }
 
         /// <summary>
-        /// Returns a new buffer as a slice of the provided buffer, if offset is greater than zero or count does not 
+        /// Returns a new buffer as a slice of the provided buffer, if offset is greater than zero or count does not
         /// match buffer length. Returns the same instance otherwise.
         /// </summary>
         /// <param name="value">The Buffer to slice</param>
@@ -213,7 +213,7 @@ namespace Cassandra
         {
             var buffer = new byte[stream.Length - position];
             stream.Position = position;
-            ReadExactly(stream, buffer, 0, buffer.Length - position);
+            stream.ReadExactly(buffer);
             return buffer;
         }
 
@@ -228,7 +228,7 @@ namespace Cassandra
             {
                 stream.Position = 0;
                 var itemLength = (int)stream.Length;
-                ReadExactly(stream, buffer, offset, itemLength);
+                stream.ReadExactly(buffer, offset, itemLength);
                 offset += itemLength;
             }
             return buffer;
