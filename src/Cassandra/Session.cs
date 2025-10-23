@@ -164,6 +164,12 @@ namespace Cassandra
         /// <inheritdoc />
         public Task ShutdownAsync()
         {
+            //Only dispose once
+            if (Interlocked.Increment(ref _disposed) != 1)
+            {
+                return Task.FromResult<object>(null);
+            }
+
             // FIXME: Actually perform shutdown.
             // Remember to dequeue from Cluster's sessions list.
             return Task.FromResult<object>(null);
