@@ -178,7 +178,7 @@ namespace Cassandra
         }
 
         /// <summary>
-        /// Returns a new buffer as a slice of the provided buffer, if offset is greater than zero or count does not 
+        /// Returns a new buffer as a slice of the provided buffer, if offset is greater than zero or count does not
         /// match buffer length. Returns the same instance otherwise.
         /// </summary>
         /// <param name="value">The Buffer to slice</param>
