@@ -49,6 +49,15 @@ export SCYLLA_VERSION
 export DOTNET_CLI_USE_MSBUILD_SERVER=0
 export MSBUILDDISABLENODEREUSE=1
 
+# Force a single-node, non-parallel build. `dotnet test` builds the whole project
+# graph, and Cassandra.csproj (netstandard2.0) is referenced by the test project
+# and both extension assemblies. Building the graph in parallel makes multiple
+# MSBuild processes produce that shared project's outputs at the same time and
+# race on files like ScyllaDB.deps.json and CoreCompileInputs.cache, failing with
+# "MSB4018: GenerateDepsFile ... deps.json ... being used by another process" or
+# "MSB3491: CoreCompileInputs.cache ... already exists". Serializing removes it.
+SERIAL_BUILD_OPTS = -m:1 -p:BuildInParallel=false
+
 .PHONY: check
 check:
 	dotnet format --verify-no-changes --severity warn --verbosity diagnostic src/Cassandra/Cassandra.csproj
@@ -64,7 +73,7 @@ fix:
 .PHONY: test-unit
 test-unit: .use-development-snk
 	dotnet build-server shutdown
-	dotnet test $(TEST_TARGET_OPTIONS) src/Cassandra.Tests/Cassandra.Tests.csproj
+	dotnet test $(SERIAL_BUILD_OPTS) $(TEST_TARGET_OPTIONS) src/Cassandra.Tests/Cassandra.Tests.csproj
 
 TEST_INTEGRATION_SCYLLA_FILTER ?= (FullyQualifiedName!~ClientWarningsTests & FullyQualifiedName!~CustomPayloadTests & FullyQualifiedName!~Connect_With_Ssl_Test & FullyQualifiedName!~Should_UpdateHosts_When_HostIpChanges & FullyQualifiedName!~Should_UseNewHostInQueryPlans_When_HostIsDecommissionedAndJoinsAgain & FullyQualifiedName!~Should_RemoveNodeMetricsAndDisposeMetricsContext_When_HostIsRemoved & FullyQualifiedName!~Virtual_Keyspaces_Are_Included & FullyQualifiedName!~Virtual_Table_Metadata_Test & FullyQualifiedName!~SessionAuthenticationTests & FullyQualifiedName!~Custom_MetadataTest & FullyQualifiedName!~Should_Use_Custom_TypeSerializers & FullyQualifiedName!~LinqWhere_WithVectors & FullyQualifiedName!~SimpleStatement_With_No_Compact_Enabled_Should_Reveal_Non_Schema_Columns & FullyQualifiedName!~SimpleStatement_With_No_Compact_Disabled_Should_Not_Reveal_Non_Schema_Columns & FullyQualifiedName!~ColumnClusteringOrderReversedTest & FullyQualifiedName!~GetMaterializedView_Should_Refresh_View_Metadata_Via_Events & FullyQualifiedName!~MaterializedView_Base_Table_Column_Addition & FullyQualifiedName!~MultipleSecondaryIndexTest & FullyQualifiedName!~RaiseErrorOnInvalidMultipleSecondaryIndexTest & FullyQualifiedName!~TableMetadataAllTypesTest & FullyQualifiedName!~TableMetadataClusteringOrderTest & FullyQualifiedName!~TableMetadataCollectionsSecondaryIndexTest & FullyQualifiedName!~TableMetadataCompositePartitionKeyTest & FullyQualifiedName!~TupleMetadataTest & FullyQualifiedName!~Udt_Case_Sensitive_Metadata_Test & FullyQualifiedName!~UdtMetadataTest & FullyQualifiedName!~Should_Retrieve_Table_Metadata & FullyQualifiedName!~CreateTable_With_Frozen_Key & FullyQualifiedName!~CreateTable_With_Frozen_Udt & FullyQualifiedName!~CreateTable_With_Frozen_Value & FullyQualifiedName!~Should_AllMetricsHaveValidValues_When_AllNodesAreUp & FullyQualifiedName!~SimpleStatement_Dictionary_Parameters_CaseInsensitivity_ExcessOfParams & FullyQualifiedName!~SimpleStatement_Dictionary_Parameters_CaseInsensitivity_NoOverload & FullyQualifiedName!~TokenAware_TransientReplication_NoHopsAndOnlyFullReplicas & FullyQualifiedName!~GetFunction_Should_Return_Most_Up_To_Date_Metadata_Via_Events & FullyQualifiedName!~LargeDataTests & FullyQualifiedName!~MetadataTests & FullyQualifiedName!~MultiThreadingTests & FullyQualifiedName!~PoolTests & FullyQualifiedName!~PrepareLongTests & FullyQualifiedName!~SpeculativeExecutionLongTests & FullyQualifiedName!~StressTests & FullyQualifiedName!~TransitionalAuthenticationTests & FullyQualifiedName!~ProxyAuthenticationTests & FullyQualifiedName!~CloudIntegrationTests & FullyQualifiedName!~CoreGraphTests & FullyQualifiedName!~GraphTests & FullyQualifiedName!~InsightsIntegrationTests & FullyQualifiedName!~DateRangeTests & FullyQualifiedName!~FoundBugTests & FullyQualifiedName!~GeometryTests & FullyQualifiedName!~LoadBalancingPolicyTests & FullyQualifiedName!~ConsistencyTests & FullyQualifiedName!~LoadBalancingPolicyTests & FullyQualifiedName!~ReconnectionPolicyTests & FullyQualifiedName!~RetryPolicyTests)
 TEST_INTEGRATION_OPTIONS ?= -l "console;verbosity=detailed"
@@ -72,11 +81,12 @@ TEST_INTEGRATION_CSPROJ ?= src/Cassandra.IntegrationTests/Cassandra.IntegrationT
 .PHONY: test-integration-scylla
 test-integration-scylla: .use-development-snk .prepare-scylla-ccm
 	dotnet build-server shutdown
-	CCM_DISTRIBUTION=scylla dotnet test $(TEST_TARGET_OPTIONS) $(TEST_INTEGRATION_CSPROJ) $(TEST_INTEGRATION_OPTIONS) --filter "$(TEST_INTEGRATION_SCYLLA_FILTER)"
+	CCM_DISTRIBUTION=scylla dotnet test $(SERIAL_BUILD_OPTS) $(TEST_TARGET_OPTIONS) $(TEST_INTEGRATION_CSPROJ) $(TEST_INTEGRATION_OPTIONS) --filter "$(TEST_INTEGRATION_SCYLLA_FILTER)"
 
 .PHONY: test-integration-cassandra
 test-integration-cassandra: .use-development-snk .prepare-cassandra-ccm
-	CCM_DISTRIBUTION=cassandra dotnet test $(TEST_TARGET_OPTIONS) $(TEST_INTEGRATION_CSPROJ) $(TEST_INTEGRATION_OPTIONS)
+	dotnet build-server shutdown
+	CCM_DISTRIBUTION=cassandra dotnet test $(SERIAL_BUILD_OPTS) $(TEST_TARGET_OPTIONS) $(TEST_INTEGRATION_CSPROJ) $(TEST_INTEGRATION_OPTIONS)
 
 .prepare-cassandra-ccm:
 	@ccm --help 2>/dev/null 1>&2; if [[ $$? -lt 127 ]] && grep CASSANDRA ${CCM_CONFIG_DIR}/ccm-type 2>/dev/null 1>&2 && grep ${CCM_CASSANDRA_VERSION} ${CCM_CONFIG_DIR}/ccm-version 2>/dev//null  1>&2; then \
