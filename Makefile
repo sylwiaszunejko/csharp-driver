@@ -40,6 +40,15 @@ export SCYLLA_EXT_OPTS
 export SIMULACRON_PATH
 export SCYLLA_VERSION
 
+# Disable the persistent MSBuild server and node reuse. Recent .NET SDKs (9/10)
+# keep MSBuild worker processes alive between invocations, which can race on the
+# shared intermediate cache (obj/**/*.CoreCompileInputs.cache) of projects that
+# are referenced by several other projects (e.g. Cassandra.csproj is referenced
+# by the tests and the extension assemblies). That race surfaces as a flaky
+# "MSB3491: ... CoreCompileInputs.cache ... already exists" build error.
+export DOTNET_CLI_USE_MSBUILD_SERVER=0
+export MSBUILDDISABLENODEREUSE=1
+
 .PHONY: check
 check:
 	dotnet format --verify-no-changes --severity warn --verbosity diagnostic src/Cassandra/Cassandra.csproj
