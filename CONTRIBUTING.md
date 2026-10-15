@@ -44,6 +44,23 @@ Driver users coding in their IDE should find the right documentation at the righ
 
 Avoid using too many links, they can make comments harder to read, especially in the IDE. Link to a type the first time it's mentioned, then use a text description ("this registry"...). Don't link to a class in its own documentation. Don't link to types that appear right below in the documented item's signature.
 
+### Public API changes
+
+The shipping projects (`src/Cassandra` and the two extensions under `src/Extensions`) track their public API with [PublicApiAnalyzers][publicapianalyzers]. Each project has two files next to its `.csproj`:
+
+- `PublicAPI.Shipped.txt`: the API of the last released version. Do not edit it in a feature PR.
+- `PublicAPI.Unshipped.txt`: API added or removed since that release.
+
+Any change to the public surface fails the build (RS0016/RS0017) until it is declared in `PublicAPI.Unshipped.txt`, so every API change is visible in the PR diff. Use the IDE quick fix, or run:
+
+```bash
+dotnet format analyzers src/Cassandra/Cassandra.csproj --diagnostics RS0016 RS0017 --severity warn
+```
+
+A removed member is recorded as a `*REMOVED*` line in `PublicAPI.Unshipped.txt`. It is a breaking change, so it is only acceptable in a major release and needs an entry in the [upgrade guide](./docs/source/upgrade-guide/index.md). When a version is released, move the contents of `PublicAPI.Unshipped.txt` into `PublicAPI.Shipped.txt`.
+
+This check complements the release-time package validation in [build/validate-packages.py](./build/validate-packages.py), which compares the packed assemblies against the previous release with ApiCompat.
+
 ## Logs
 
 We use the .NET Tracing API and `Microsoft.Extensions.Logging`; loggers are declared like this:
@@ -252,3 +269,4 @@ If you need new stuff from the base branch, it's fine to rebase and force-push, 
 [dotnetsdk]: https://dotnet.microsoft.com/download/dotnet/10.0
 [dotnetcoresdk]: https://www.microsoft.com/net/download/core
 [scylla-slack]: https://scylladb-users.slack.com
+[publicapianalyzers]: https://github.com/dotnet/roslyn/blob/main/src/RoslynAnalyzers/PublicApiAnalyzers/PublicApiAnalyzers.Help.md

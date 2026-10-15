@@ -1,0 +1,60 @@
+Cassandra.AppMetrics.DriverAppMetricsOptions
+Cassandra.AppMetrics.DriverAppMetricsOptions.DriverAppMetricsOptions() -> void
+Cassandra.AppMetrics.DriverAppMetricsOptions.HighestLatencyMilliseconds.get -> int
+Cassandra.AppMetrics.DriverAppMetricsOptions.RefreshIntervalMilliseconds.get -> int
+Cassandra.AppMetrics.DriverAppMetricsOptions.SetHighestLatencyMilliseconds(int highestLatencyMilliseconds) -> Cassandra.AppMetrics.DriverAppMetricsOptions
+Cassandra.AppMetrics.DriverAppMetricsOptions.SetRefreshIntervalMilliseconds(int refreshIntervalMilliseconds) -> Cassandra.AppMetrics.DriverAppMetricsOptions
+Cassandra.AppMetrics.DriverAppMetricsOptions.SetSignificantDigits(int digits) -> Cassandra.AppMetrics.DriverAppMetricsOptions
+Cassandra.AppMetrics.DriverAppMetricsOptions.SetTimersTimeUnit(App.Metrics.TimeUnit timeUnit) -> Cassandra.AppMetrics.DriverAppMetricsOptions
+Cassandra.AppMetrics.DriverAppMetricsOptions.SignificantDigits.get -> int
+Cassandra.AppMetrics.DriverAppMetricsOptions.TimersTimeUnit.get -> App.Metrics.TimeUnit
+Cassandra.AppMetrics.MetricTypes.IAppMetricsCounter
+Cassandra.AppMetrics.MetricTypes.IAppMetricsGauge
+Cassandra.AppMetrics.MetricTypes.IAppMetricsMeter
+Cassandra.AppMetrics.MetricTypes.IAppMetricsMetric
+Cassandra.AppMetrics.MetricTypes.IAppMetricsMetric.Context.get -> string
+Cassandra.AppMetrics.MetricTypes.IAppMetricsMetric.Name.get -> string
+Cassandra.AppMetrics.MetricTypes.IAppMetricsTimer
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Count.get -> long
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.LastValue.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Max.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Mean.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Median.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Min.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Percentile75.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Percentile95.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Percentile98.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Percentile99.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Percentile999.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.SampleSize.get -> int
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.StdDev.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue.Sum.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue.Count.get -> long
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue.FifteenMinuteRate.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue.FiveMinuteRate.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue.MeanRate.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue.OneMinuteRate.get -> double
+Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue.RateUnit.get -> App.Metrics.TimeUnit
+Cassandra.AppMetrics.MetricValues.IAppMetricsMetricWithValue<T>
+Cassandra.AppMetrics.MetricValues.IAppMetricsMetricWithValue<T>.GetValue() -> T
+Cassandra.AppMetrics.MetricValues.IAppMetricsTimerValue
+Cassandra.AppMetrics.MetricValues.IAppMetricsTimerValue.DurationUnit.get -> App.Metrics.TimeUnit
+Cassandra.AppMetrics.MetricValues.IAppMetricsTimerValue.Histogram.get -> Cassandra.AppMetrics.MetricValues.IAppMetricsHistogramValue
+Cassandra.AppMetrics.MetricValues.IAppMetricsTimerValue.Rate.get -> Cassandra.AppMetrics.MetricValues.IAppMetricsMeterValue
+Cassandra.MetricsExtensions
+static Cassandra.MetricsExtensions.CreateDriverMetricsProvider(this App.Metrics.IMetricsRoot appMetrics) -> Cassandra.Metrics.Abstractions.IDriverMetricsProvider
+static Cassandra.MetricsExtensions.CreateDriverMetricsProvider(this App.Metrics.IMetricsRoot appMetrics, Cassandra.AppMetrics.DriverAppMetricsOptions options) -> Cassandra.Metrics.Abstractions.IDriverMetricsProvider
+static Cassandra.MetricsExtensions.GetNodeCounter(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Host host, Cassandra.Metrics.NodeMetric nodeMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsCounter
+static Cassandra.MetricsExtensions.GetNodeGauge(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Host host, Cassandra.Metrics.NodeMetric nodeMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsGauge
+static Cassandra.MetricsExtensions.GetNodeMeter(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Host host, Cassandra.Metrics.NodeMetric nodeMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsMeter
+static Cassandra.MetricsExtensions.GetNodeTimer(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Host host, Cassandra.Metrics.NodeMetric nodeMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsTimer
+static Cassandra.MetricsExtensions.GetSessionCounter(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Metrics.SessionMetric sessionMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsCounter
+static Cassandra.MetricsExtensions.GetSessionGauge(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Metrics.SessionMetric sessionMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsGauge
+static Cassandra.MetricsExtensions.GetSessionMeter(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Metrics.SessionMetric sessionMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsMeter
+static Cassandra.MetricsExtensions.GetSessionTimer(this Cassandra.Metrics.IDriverMetrics driverMetrics, Cassandra.Metrics.SessionMetric sessionMetric) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsTimer
+static Cassandra.MetricsExtensions.ToAppMetricsCounter(this Cassandra.Metrics.Abstractions.IDriverCounter counter) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsCounter
+static Cassandra.MetricsExtensions.ToAppMetricsGauge(this Cassandra.Metrics.Abstractions.IDriverGauge gauge) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsGauge
+static Cassandra.MetricsExtensions.ToAppMetricsMeter(this Cassandra.Metrics.Abstractions.IDriverMeter meter) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsMeter
+static Cassandra.MetricsExtensions.ToAppMetricsTimer(this Cassandra.Metrics.Abstractions.IDriverTimer timer) -> Cassandra.AppMetrics.MetricTypes.IAppMetricsTimer

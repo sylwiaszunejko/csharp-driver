@@ -1,0 +1,21 @@
+Cassandra.OpenTelemetry.BuilderExtensions
+Cassandra.OpenTelemetry.CassandraActivitySourceHelper
+Cassandra.OpenTelemetry.CassandraInstrumentationOptions
+Cassandra.OpenTelemetry.CassandraInstrumentationOptions.BatchChildStatementLimit.get -> int
+Cassandra.OpenTelemetry.CassandraInstrumentationOptions.BatchChildStatementLimit.set -> void
+Cassandra.OpenTelemetry.CassandraInstrumentationOptions.CassandraInstrumentationOptions() -> void
+Cassandra.OpenTelemetry.CassandraInstrumentationOptions.IncludeDatabaseStatement.get -> bool
+Cassandra.OpenTelemetry.CassandraInstrumentationOptions.IncludeDatabaseStatement.set -> void
+Cassandra.OpenTelemetry.OpenTelemetryRequestTracker
+Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnNodeAborted(Cassandra.SessionRequestInfo sessionRequest, Cassandra.NodeRequestInfo nodeRequestInfo) -> System.Threading.Tasks.Task
+Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OpenTelemetryRequestTracker(Cassandra.OpenTelemetry.CassandraInstrumentationOptions instrumentationOptions) -> void
+const Cassandra.OpenTelemetry.CassandraInstrumentationOptions.DefaultBatchChildStatementLimit = 5 -> int
+static Cassandra.OpenTelemetry.BuilderExtensions.WithOpenTelemetryInstrumentation(this Cassandra.Builder builder) -> Cassandra.Builder
+static Cassandra.OpenTelemetry.BuilderExtensions.WithOpenTelemetryInstrumentation(this Cassandra.Builder builder, System.Action<Cassandra.OpenTelemetry.CassandraInstrumentationOptions> options) -> Cassandra.Builder
+static readonly Cassandra.OpenTelemetry.CassandraActivitySourceHelper.ActivitySourceName -> string
+virtual Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnErrorAsync(Cassandra.SessionRequestInfo sessionRequest, System.Exception ex) -> System.Threading.Tasks.Task
+virtual Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnNodeErrorAsync(Cassandra.SessionRequestInfo sessionRequest, Cassandra.NodeRequestInfo nodeRequestInfo, System.Exception ex) -> System.Threading.Tasks.Task
+virtual Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnNodeStartAsync(Cassandra.SessionRequestInfo sessionRequest, Cassandra.NodeRequestInfo nodeRequestInfo) -> System.Threading.Tasks.Task
+virtual Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnNodeSuccessAsync(Cassandra.SessionRequestInfo sessionRequest, Cassandra.NodeRequestInfo nodeRequestInfo) -> System.Threading.Tasks.Task
+virtual Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnStartAsync(Cassandra.SessionRequestInfo sessionRequest) -> System.Threading.Tasks.Task
+virtual Cassandra.OpenTelemetry.OpenTelemetryRequestTracker.OnSuccessAsync(Cassandra.SessionRequestInfo sessionRequest) -> System.Threading.Tasks.Task
