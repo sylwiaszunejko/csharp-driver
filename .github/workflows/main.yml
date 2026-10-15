@@ -133,6 +133,10 @@ jobs:
       - name: Build examples
         run: make build-examples
 
+      # Keeps the micro-benchmarks compiling against the driver's internals; running them is manual.
+      - name: Build benchmarks
+        run: make build-benchmarks
+
   integration-tests:
     needs: [lint]
     runs-on: ubuntu-24.04

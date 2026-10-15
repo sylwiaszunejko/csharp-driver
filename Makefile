@@ -45,16 +45,28 @@ check:
 	dotnet format --verify-no-changes --severity warn --verbosity diagnostic src/Cassandra/Cassandra.csproj
 	dotnet format --verify-no-changes --severity warn --verbosity diagnostic src/Cassandra.Tests/Cassandra.Tests.csproj
 	dotnet format --verify-no-changes --severity warn --verbosity diagnostic src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj
+	dotnet format --verify-no-changes --severity warn --verbosity diagnostic src/Cassandra.Benchmarks/Cassandra.Benchmarks.csproj
 
 .PHONY: fix
 fix:
 	dotnet format --severity warn --verbosity diagnostic src/Cassandra/Cassandra.csproj
 	dotnet format --severity warn --verbosity diagnostic src/Cassandra.Tests/Cassandra.Tests.csproj
 	dotnet format --severity warn --verbosity diagnostic src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj
+	dotnet format --severity warn --verbosity diagnostic src/Cassandra.Benchmarks/Cassandra.Benchmarks.csproj
 
 .PHONY: build-examples
 build-examples: .use-development-snk
 	dotnet build --maxcpucount:1 examples/examples.sln --configuration Release
+
+.PHONY: build-benchmarks
+build-benchmarks: .use-development-snk
+	dotnet build --maxcpucount:1 src/Cassandra.Benchmarks/Cassandra.Benchmarks.csproj --configuration Release
+
+# Runs the micro-benchmarks. Narrow the run with BENCHMARK_FILTER, e.g. BENCHMARK_FILTER='*Token*'.
+BENCHMARK_FILTER ?= *
+.PHONY: benchmark
+benchmark: build-benchmarks
+	cd src/Cassandra.Benchmarks && dotnet run --configuration Release --no-build -- --filter '$(BENCHMARK_FILTER)'
 
 .PHONY: test-unit
 test-unit: .use-development-snk
