@@ -85,3 +85,4 @@ CLAUDE.md
 
 # Benchmark and modernization report output
 BenchmarkDotNet.Artifacts/
+build/reports/

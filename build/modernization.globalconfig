@@ -1,0 +1,47 @@
+# Opt-in report of APIs that netstandard2.0 lacked and net10.0 provides.
+#
+# Applied only when building with -p:ReportModernization=true (see src/Directory.Build.props and
+# `make modernization-report`). Every rule here is reported as a warning that is NOT promoted to an
+# error, so the report never fails a build and normal builds are unaffected. Promote a rule into the
+# regular build (src/.editorconfig) once its backlog reaches zero, so it cannot regress.
+#
+# src/.editorconfig takes precedence over this file for any rule it also configures.
+
+is_global = true
+global_level = 100
+
+# Throw helpers (.NET 6-8): ArgumentNullException.ThrowIfNull and friends.
+dotnet_diagnostic.CA1510.severity = warning
+dotnet_diagnostic.CA1511.severity = warning
+dotnet_diagnostic.CA1512.severity = warning
+dotnet_diagnostic.CA1513.severity = warning
+
+# Static one-shot hashing (.NET 5), e.g. MD5.HashData instead of a cached MD5 instance.
+dotnet_diagnostic.CA1850.severity = warning
+
+# Generic overloads (e.g. Enum.GetValues<T>) instead of Type-based ones.
+dotnet_diagnostic.CA2263.severity = warning
+
+# Source-generated regular expressions (.NET 7).
+dotnet_diagnostic.SYSLIB1045.severity = warning
+
+# System.Threading.Lock (.NET 9) instead of locking on a plain object.
+csharp_prefer_system_threading_lock = true
+dotnet_diagnostic.IDE0330.severity = warning
+
+# Span- and Memory-based overloads (.NET Core 2.1+).
+dotnet_diagnostic.CA1835.severity = warning
+dotnet_diagnostic.CA1845.severity = warning
+dotnet_diagnostic.CA1846.severity = warning
+
+# Cheaper collection and string APIs added since netstandard2.0.
+dotnet_diagnostic.CA1854.severity = warning
+dotnet_diagnostic.CA1858.severity = warning
+dotnet_diagnostic.CA1864.severity = warning
+dotnet_diagnostic.CA1865.severity = warning
+dotnet_diagnostic.CA1866.severity = warning
+dotnet_diagnostic.CA1867.severity = warning
+
+# Async hygiene: forward cancellation tokens; prefer async APIs inside async methods.
+dotnet_diagnostic.CA2016.severity = warning
+dotnet_diagnostic.CA1849.severity = warning

@@ -61,6 +61,16 @@ A removed member is recorded as a `*REMOVED*` line in `PublicAPI.Unshipped.txt`.
 
 This check complements the release-time package validation in [build/validate-packages.py](./build/validate-packages.py), which compares the packed assemblies against the previous release with ApiCompat.
 
+### Modernization report
+
+Until version 4 the driver targeted `netstandard2.0`, so much of the code predates APIs that `net10.0` provides (throw helpers, `System.Threading.Lock`, source-generated regular expressions, span-based overloads, ...). To list those opportunities in the shipping projects, run:
+
+```bash
+make modernization-report
+```
+
+It prints a per-rule summary and writes the individual findings to `build/reports/modernization.txt`. The rules are listed in [build/modernization.globalconfig](./build/modernization.globalconfig). They only apply with `-p:ReportModernization=true` and never fail the build. Once a rule's findings have all been fixed, enable it in `src/.editorconfig` so it can't regress.
+
 ## Logs
 
 We use the .NET Tracing API and `Microsoft.Extensions.Logging`; loggers are declared like this:

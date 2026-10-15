@@ -68,6 +68,22 @@ BENCHMARK_FILTER ?= *
 benchmark: build-benchmarks
 	cd src/Cassandra.Benchmarks && dotnet run --configuration Release --no-build -- --filter '$(BENCHMARK_FILTER)'
 
+# Lists APIs that net10.0 offers in place of netstandard2.0-era code in the shipping projects,
+# as configured in build/modernization.globalconfig. Never fails on findings.
+MODERNIZATION_PROJECTS := src/Cassandra/Cassandra.csproj src/Extensions/Cassandra.AppMetrics/Cassandra.AppMetrics.csproj src/Extensions/Cassandra.OpenTelemetry/Cassandra.OpenTelemetry.csproj
+.PHONY: modernization-report
+modernization-report: .use-development-snk
+	@mkdir -p build/reports
+	@: > build/reports/modernization.log
+	@set -o pipefail; for project in $(MODERNIZATION_PROJECTS); do \
+		dotnet build "$$project" --configuration Release --no-incremental -p:ReportModernization=true -clp:NoSummary \
+			>> build/reports/modernization.log || { tail -n 50 build/reports/modernization.log; exit 1; }; \
+	done
+	@grep -oE '^[^ ]+\([0-9]+,[0-9]+\): warning [A-Z]+[0-9]+: [^[]*' build/reports/modernization.log \
+		| sed "s#^$(MAKEFILE_PATH)/##" | sort -u > build/reports/modernization.txt || true
+	@echo "Modernization findings by rule (details: build/reports/modernization.txt):"
+	@awk '{print $$3}' build/reports/modernization.txt | tr -d ':' | sort | uniq -c | sort -rn
+
 .PHONY: test-unit
 test-unit: .use-development-snk
 	dotnet build-server shutdown

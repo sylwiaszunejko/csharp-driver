@@ -15,4 +15,14 @@
 	<ItemGroup Condition="'$(RunCodeAnalyzers)' == 'True'">
 		<AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" />
 	</ItemGroup>
+	<!-- Opt-in report of .NET 10 modernization opportunities: `make modernization-report`, or build with
+	     -p:ReportModernization=true. The rules in build/modernization.globalconfig are reported as warnings
+	     and never promoted to errors, so the report does not fail the build. -->
+	<PropertyGroup Condition="'$(ReportModernization)' == 'true'">
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+		<WarningsNotAsErrors>$(WarningsNotAsErrors);CA1510;CA1511;CA1512;CA1513;CA1835;CA1845;CA1846;CA1849;CA1850;CA1854;CA1858;CA1864;CA1865;CA1866;CA1867;CA2016;CA2263;SYSLIB1045;IDE0330</WarningsNotAsErrors>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(ReportModernization)' == 'true'">
+		<GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)../build/modernization.globalconfig" />
+	</ItemGroup>
 </Project>
