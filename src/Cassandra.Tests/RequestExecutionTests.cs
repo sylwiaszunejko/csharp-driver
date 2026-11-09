@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Cassandra.Connections;
 using Cassandra.ExecutionProfiles;
@@ -71,6 +72,40 @@ namespace Cassandra.Tests
             await send.ConfigureAwait(false);
 
             Assert.IsFalse(operation.CanBeWritten());
+        }
+
+        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task Should_Not_Send_Or_Try_Other_Hosts_When_Cancelled_While_Waiting_For_A_Connection(bool connectionObtained)
+        {
+            var config = new TestConfigurationBuilder().Build();
+            var host = new Host(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 9047), new ConstantReconnectionPolicy(1));
+            var validHost = ValidHost.New(host, HostDistance.Local);
+            var pendingConnection = new TaskCompletionSource<IConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var connection = new Mock<IConnection>();
+            var parent = new Mock<IRequestHandler>();
+            parent.SetupGet(m => m.RequestOptions).Returns(config.DefaultRequestOptions);
+            parent.Setup(m => m.GetNextValidHost(It.IsAny<Dictionary<IPEndPoint, Exception>>())).Returns(validHost);
+            parent
+                .Setup(m => m.GetConnectionToValidHostAsync(validHost, It.IsAny<Dictionary<IPEndPoint, Exception>>(), It.IsAny<int>()))
+                .Returns(pendingConnection.Task);
+            var execution = new RequestExecution(
+                parent.Object, Mock.Of<IInternalSession>(), Mock.Of<IRequest>(), NullRequestObserver.Instance,
+                new SessionRequestInfo(Mock.Of<IStatement>(), "ks1"));
+
+            execution.Start(false);
+            execution.Cancel();
+            pendingConnection.SetResult(connectionObtained ? connection.Object : null);
+            await Task.Delay(100).ConfigureAwait(false);
+
+            connection.Verify(
+                c => c.SendWithKeyspace(
+                    It.IsAny<IRequest>(), It.IsAny<string>(), It.IsAny<Func<IRequestError, Response, Task>>(),
+                    It.IsAny<int>(), It.IsAny<bool>()),
+                Times.Never);
+            // Only the host chosen when the execution started
+            parent.Verify(m => m.GetNextValidHost(It.IsAny<Dictionary<IPEndPoint, Exception>>()), Times.Once);
         }
 
         [TestCase("USE ks2", true)]

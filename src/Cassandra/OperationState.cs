@@ -49,6 +49,7 @@ namespace Cassandra
         private Action _cancellationHandler;
         private Action _wireCompletionHandler;
         private int _wireCompleted;
+        private int _written;
 
         /// <summary>
         /// See docs for <see cref="IRequest.ResultMetadata"/>.
@@ -100,11 +101,17 @@ namespace Cassandra
             short streamId, MemoryStream memoryStream, ISerializer serializer, bool useMetadataId, long timestamp)
         {
             var frameLength = Request.WriteFrame(streamId, memoryStream, serializer, useMetadataId);
+            Volatile.Write(ref _written, 1);
             _operationObserver.OnOperationSend(frameLength, timestamp);
             //We will not use the request any more, stop reference it.
             Request = null;
             return frameLength;
         }
+
+        /// <summary>
+        /// Gets whether the request frame was written to the connection.
+        /// </summary>
+        public bool IsWritten => Volatile.Read(ref _written) != 0;
 
         public bool CanBeWritten()
         {

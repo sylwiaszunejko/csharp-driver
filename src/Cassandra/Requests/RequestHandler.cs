@@ -44,6 +44,7 @@ namespace Cassandra.Requests
         private readonly IInternalSession _session;
         private readonly IRequestResultHandler _requestResultHandler;
         private long _state;
+        private volatile bool _cancelledByCaller;
         private readonly IEnumerator<HostShard> _queryPlan;
         private readonly Lock _queryPlanLock = new Lock();
         private readonly ICollection<IRequestExecution> _running = new CopyOnWriteList<IRequestExecution>();
@@ -246,20 +247,11 @@ namespace Cassandra.Requests
         /// </summary>
         private async Task<bool> SetCompletedAsync(Exception ex, RowSet result, Func<Task> action)
         {
-            var finishedNow = Interlocked.CompareExchange(ref _state, RequestHandler.StateCompleted, RequestHandler.StateInit) == RequestHandler.StateInit;
-            if (!finishedNow)
+            if (!TryComplete(false))
             {
                 return false;
             }
 
-            //Cancel the current timer
-            //When the next execution timer is being scheduled at the *same time*
-            //the timer is not going to be cancelled, in that case, this instance is going to stay alive a little longer
-            _nextExecutionTimeout?.Cancel();
-            foreach (var execution in _running)
-            {
-                execution.Cancel();
-            }
             if (ex != null)
             {
                 await _requestResultHandler.TrySetExceptionAsync(ex, _sessionRequestInfo).ConfigureAwait(false);
@@ -289,6 +281,74 @@ namespace Cassandra.Requests
 
             await ClearNodeExecutionsAsync().ConfigureAwait(false);
             await _requestResultHandler.TrySetResultAsync(result, _sessionRequestInfo).ConfigureAwait(false);
+            return true;
+        }
+
+        /// <summary>
+        /// Completes the request as cancelled, unless its task has completed already. This includes a request whose
+        /// response was received but which still waits for schema agreement. The node executions still running are
+        /// reported as aborted, since their responses will no longer be handled.
+        /// </summary>
+        private async Task SetCanceledAsync(CancellationToken cancellationToken)
+        {
+            // Nothing awaits this method: a failing request observer is logged, and the task is still cancelled
+            try
+            {
+                if (TryComplete(true))
+                {
+                    await ClearNodeExecutionsAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                RequestHandler.Logger.Warning("A request observer failed while the request was being cancelled: {0}", ex);
+            }
+
+            try
+            {
+                await _requestResultHandler.TrySetCanceledAsync(cancellationToken, _sessionRequestInfo).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                RequestHandler.Logger.Warning("A request observer failed while the request was being cancelled: {0}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Marks this instance as completed, and cancels the next speculative execution and the running executions.
+        /// When the caller cancelled the request, the requests already written are left running, see
+        /// <see cref="IRequestExecution.CancelUnsent"/>. Returns false when it was already completed.
+        /// </summary>
+        private bool TryComplete(bool cancelledByCaller)
+        {
+            if (cancelledByCaller)
+            {
+                // Set before completing, so that an execution starting concurrently sees it
+                _cancelledByCaller = true;
+            }
+
+            var finishedNow = Interlocked.CompareExchange(ref _state, RequestHandler.StateCompleted, RequestHandler.StateInit) == RequestHandler.StateInit;
+            if (!finishedNow)
+            {
+                return false;
+            }
+
+            //Cancel the current timer
+            //When the next execution timer is being scheduled at the *same time*
+            //the timer is not going to be cancelled, in that case, this instance is going to stay alive a little longer
+            _nextExecutionTimeout?.Cancel();
+            foreach (var execution in _running)
+            {
+                if (cancelledByCaller)
+                {
+                    execution.CancelUnsent();
+                }
+                else
+                {
+                    execution.Cancel();
+                }
+            }
+
             return true;
         }
 
@@ -482,7 +542,8 @@ namespace Cassandra.Requests
             }
         }
 
-        public async Task<RowSet> SendAsync()
+        /// <inheritdoc />
+        public async Task<RowSet> SendAsync(CancellationToken cancellationToken)
         {
             if (_request == null)
             {
@@ -490,8 +551,23 @@ namespace Cassandra.Requests
                 return await _requestResultHandler.Task.ConfigureAwait(false);
             }
 
-            await StartNewExecutionAsync().ConfigureAwait(false);
-            return await _requestResultHandler.Task.ConfigureAwait(false);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                // Complete before starting an execution, so that nothing is sent
+                await SetCanceledAsync(cancellationToken).ConfigureAwait(false);
+                return await _requestResultHandler.Task.ConfigureAwait(false);
+            }
+
+            // The callback runs on the thread that cancels the token: complete the request on the thread pool, so
+            // that the observers and the continuations of the task don't run on that thread
+            // The callback only queues the work, so it doesn't need the caller's execution context
+            using (cancellationToken.UnsafeRegister(
+                       static (state, token) => Task.Run(() => ((RequestHandler)state).SetCanceledAsync(token), CancellationToken.None),
+                       this))
+            {
+                await StartNewExecutionAsync().ConfigureAwait(false);
+                return await _requestResultHandler.Task.ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -499,11 +575,32 @@ namespace Cassandra.Requests
         /// </summary>
         private async Task StartNewExecutionAsync()
         {
+            if (HasCompleted())
+            {
+                // Cancelled before the execution started
+                return;
+            }
+
             try
             {
                 var execution = _session.Cluster.Configuration.RequestExecutionFactory.Create(this, _session, _request, _requestObserver, _sessionRequestInfo);
                 var lastHost = execution.Start(false);
                 _running.Add(execution);
+                if (HasCompleted())
+                {
+                    // Completed while the execution was starting, before it could be cancelled with the others
+                    if (_cancelledByCaller)
+                    {
+                        execution.CancelUnsent();
+                    }
+                    else
+                    {
+                        execution.Cancel();
+                    }
+
+                    return;
+                }
+
                 ScheduleNext(lastHost);
             }
             catch (NoHostAvailableException ex)

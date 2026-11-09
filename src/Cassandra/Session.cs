@@ -263,7 +263,8 @@ namespace Cassandra
         /// <inheritdoc />
         public RowSet Execute(IStatement statement, string executionProfileName)
         {
-            var task = InternalRef.ExecuteInternalAsync(statement, InternalRef.GetRequestOptions(executionProfileName));
+            var task = InternalRef.ExecuteInternalAsync(
+                statement, InternalRef.GetRequestOptions(executionProfileName), CancellationToken.None);
             TaskHelper.WaitToCompleteWithMetrics(_metricsManager, task, Configuration.DefaultRequestOptions.QueryAbortTimeout);
             return task.Result;
         }
@@ -299,24 +300,32 @@ namespace Cassandra
         }
 
         /// <inheritdoc />
-        public Task<AsyncRowSet> ExecuteAsync(IStatement statement)
+        public Task<AsyncRowSet> ExecuteAsync(IStatement statement, CancellationToken cancellationToken = default)
         {
-            return ExecuteAsync(statement, Configuration.DefaultExecutionProfileName);
+            return ExecuteAsync(statement, Configuration.DefaultExecutionProfileName, cancellationToken);
         }
 
         /// <inheritdoc />
-        public Task<AsyncRowSet> ExecuteAsync(IStatement statement, string executionProfileName)
+        public Task<AsyncRowSet> ExecuteAsync(
+            IStatement statement, string executionProfileName, CancellationToken cancellationToken = default)
         {
             // Resolve the request options before awaiting, so that an unknown profile still throws synchronously
+            var requestOptions = InternalRef.GetRequestOptions(executionProfileName);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Task.FromCanceled<AsyncRowSet>(cancellationToken);
+            }
+
             return Session.ToAsyncRowSetAsync(
-                InternalRef.ExecuteInternalAsync(statement, InternalRef.GetRequestOptions(executionProfileName)));
+                InternalRef.ExecuteInternalAsync(statement, requestOptions, cancellationToken));
         }
 
-        async Task<RowSet> IInternalSession.ExecuteInternalAsync(IStatement statement, IRequestOptions requestOptions)
+        async Task<RowSet> IInternalSession.ExecuteInternalAsync(
+            IStatement statement, IRequestOptions requestOptions, CancellationToken cancellationToken)
         {
             var handler = await Configuration.RequestHandlerFactory
                                 .CreateAsync(this, _serializerManager.GetCurrentSerializer(), statement, requestOptions).ConfigureAwait(false);
-            return await handler.SendAsync().ConfigureAwait(false);
+            return await handler.SendAsync(cancellationToken).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
@@ -413,27 +422,33 @@ namespace Cassandra
         }
 
         /// <inheritdoc />
-        public Task<PreparedStatement> PrepareAsync(string query)
+        public Task<PreparedStatement> PrepareAsync(string query, CancellationToken cancellationToken = default)
         {
-            return PrepareAsync(query, null, null);
+            return PrepareAsync(query, null, null, cancellationToken);
         }
 
         /// <inheritdoc />
-        public Task<PreparedStatement> PrepareAsync(string query, IDictionary<string, byte[]> customPayload)
+        public Task<PreparedStatement> PrepareAsync(
+            string query, IDictionary<string, byte[]> customPayload, CancellationToken cancellationToken = default)
         {
-            return PrepareAsync(query, null, customPayload);
+            return PrepareAsync(query, null, customPayload, cancellationToken);
         }
 
         /// <inheritdoc />
-        public Task<PreparedStatement> PrepareAsync(string cqlQuery, string keyspace)
+        public Task<PreparedStatement> PrepareAsync(
+            string cqlQuery, string keyspace, CancellationToken cancellationToken = default)
         {
-            return PrepareAsync(cqlQuery, keyspace, null);
+            return PrepareAsync(cqlQuery, keyspace, null, cancellationToken);
         }
 
         /// <inheritdoc />
         public async Task<PreparedStatement> PrepareAsync(
-            string cqlQuery, string keyspace, IDictionary<string, byte[]> customPayload)
+            string cqlQuery,
+            string keyspace,
+            IDictionary<string, byte[]> customPayload,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var serializer = _serializerManager.GetCurrentSerializer();
             var currentVersion = serializer.ProtocolVersion;
             if (!currentVersion.SupportsKeyspaceInRequest() && keyspace != null)
@@ -444,7 +459,22 @@ namespace Cassandra
                                                 " setting the keyspace as part of the PREPARE request");
             }
             var request = new InternalPrepareRequest(serializer, cqlQuery, keyspace, customPayload);
-            return await _cluster.Prepare(this, _serializerManager, request).ConfigureAwait(false);
+            var preparation = _cluster.Prepare(this, _serializerManager, request);
+            try
+            {
+                // Concurrent calls can share the preparation, so the token only stops this call waiting for it
+                return await preparation.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested && !preparation.IsCompleted)
+            {
+                // Nothing waits for the preparation anymore: observe its failure, if any
+                _ = preparation.ContinueWith(
+                    static t => _ = t.Exception,
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+                throw;
+            }
         }
 
         private IStatement GetDefaultStatement(string cqlQuery)

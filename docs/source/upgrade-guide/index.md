@@ -537,6 +537,38 @@ the iteration now ends after the rows already retrieved, as for any ignored requ
 It previously threw a `NullReferenceException`. `IsFullyFetched` is then true, even
 though the remaining pages were not retrieved.
 
+### Cancellation tokens on session methods
+
+`ISession.ExecuteAsync()` and `ISession.PrepareAsync()` take an optional
+`CancellationToken` as their last parameter. Calls that don't pass one compile
+unchanged, but code compiled against 3.x must be recompiled, and classes that
+implement `ISession` must add the parameter. Mocks of these methods must accept it
+too. With Moq, a setup that omits the token only matches calls without one, so code
+under test that passes a token needs `It.IsAny<CancellationToken>()`, for example
+`Setup(s => s.ExecuteAsync(It.IsAny<IStatement>(), It.IsAny<CancellationToken>()))`.
+A `Callback` or `Returns` that receives the arguments takes one more, for example
+`.Returns<IStatement, CancellationToken>((s, _) => ...)`.
+
+Cancelling the token passed to `ExecuteAsync()` completes the task as cancelled,
+with an `OperationCanceledException` (a `TaskCanceledException`) that carries the
+token. The request timeouts still raise `OperationTimedOutException`, so the two can
+be told apart. What else happens depends on when the token is cancelled:
+
+| Token cancelled | Effect |
+|---|---|
+| Before the call | Nothing is sent |
+| While waiting for a connection | The request isn't sent, and no other host is tried |
+| After the request is sent | The driver stops waiting for the response, and starts no retry or speculative execution. The native protocol can't recall a request: the node still runs it, and a write may still be applied. The request keeps its stream id and read timeout until the response arrives or the timeout expires, so the driver still detects a node that stops responding |
+
+The token only applies to the first page. For the following pages, cancelling the
+token passed to the iteration, for example with `WithCancellation()`, or to
+`FetchMoreResultsAsync()` stops waiting for the page, but not the page request,
+whose rows are still added to the `AsyncRowSet`.
+
+Cancelling the token passed to `PrepareAsync()` only stops the call waiting for the
+preparation. Concurrent calls for the same query share one preparation, so it
+continues, and its prepared statement is still cached.
+
 ## 3.13.0 - Unified driver
 
 A new load balancing policy has been added: `DefaultLoadBalancingPolicy`. This is the new default load balancing policy in the driver. The behavior is the same as the previous default policy except for some DSE specific workloads so there is no impact for existing applications.
